@@ -1,11 +1,13 @@
-package tetris;
+
 
 import java.awt.Color;
 import static java.awt.Color.black;
-import static java.awt.Color.blue;
 import javax.swing.BorderFactory;
 import java.awt.Graphics;
+import java.util.Random;
 import javax.swing.JPanel;
+import tetrisBlocks.*;
+
 
 public class GameArea extends JPanel{
     private int gridRows;
@@ -16,9 +18,12 @@ public class GameArea extends JPanel{
     
     //hacemos los bloques de tetris, intentar hacerlo en una clase aparte después
     private TetrisBlock block;
+    private TetrisBlock lastBlock = block;
+    private TetrisBlock[] blocks;
+    
             
     public GameArea(JPanel placeholder, int columns){
-        placeholder.setVisible(false);
+        //placeholder.setVisible(false);
         this.setBounds(placeholder.getBounds());
         this.setBackground(placeholder.getBackground());
         this.setBorder(placeholder.getBorder());
@@ -28,31 +33,199 @@ public class GameArea extends JPanel{
         gridCellSize = this.getBounds().width / gridColumns;
         gridRows = this.getBounds().height/gridCellSize;
         background = new Color[gridRows][gridColumns];
-       
+        blocks = new TetrisBlock[]{new IShape(),
+                                   new JShape(),
+                                   new LShape(),
+                                   new OShape(),
+                                   new SShape(),
+                                   new TShape(),
+                                   new ZShape()};
     }
     
     public void spawnBlock(){
-        block = new TetrisBlock(new int[][]{{1,0},{1,0},{1,1}}, Color.blue); 
-        block.spawn(gridColumns);
+         Random r = new Random();
+        if(lastBlock == null||lastBlock.getClass()==block.getClass()){
+            Random r1 = new Random();
+            block = blocks[r1.nextInt(blocks.length)]; 
+            block.spawn(gridColumns); 
+        }else{
+            block = blocks[r.nextInt(blocks.length)]; 
+            block.spawn(gridColumns);
+        }
+        lastBlock=block;
+    }
+    
+  
+    public boolean isBlockOutOfBounds(){
+        
+        if(block.getY()<0){
+            block = null;
+            return true;
+        }
+        return false;
     }
     
     public boolean moveBlockDown(){
+       
         if(checkBottom() == false){
-            moveBlockToBackground();
+           
             return false;}
         block.moveDown();
         repaint(); 
         return true;
     }
+    
+    public void moveBlockRight(){
+        if(block == null)return;
+        if(checkRight()== false){
+            return;
+        }
+        block.moveRigth();
+        repaint();
+    }
 
+    public void moveBlockLeft(){
+        if(block == null)return;
+        if(checkLeft()== false){
+            return;
+        }
+        block.moveLeft();
+        repaint();
+    }
+    
+    public void dropBlock(){
+        if(block == null)return;
+        while(checkBottom()){
+            block.moveDown();
+        }
+        repaint();
+    }
+    
+    public void rotateBlock(){
+        if(block == null)return;
+        block.rotate();
+        if(block.getLeftEdge()<0)block.setX(0);
+        if(block.getRightEdge()>= gridColumns)block.setX(gridColumns - block.getWidth());
+        if(block.getBottomEdge() >= gridRows) block.setY(gridRows-block.getHeight());
+        
+        repaint();
+    }
+    
+    
     private boolean checkBottom(){
         if(block.getBottomEdge() == gridRows){
             return false;
         }
+        
+        int[][] shape = block.getShape();
+        int w = block.getWidth();
+        int h = block.getHeight();
+        
+        for(int col = 0; col < w; col++){
+            for(int row = h - 1; row >= 0; row--){
+                if(shape[row][col]!=0){
+                    int x = col+block.getX();
+                    int y = row + block.getY()+1;
+                    if(y<0) break;
+                    if(background[y][x]!=null) return false;
+                    break;
+                }
+            }
+        }
         return true;
     }
     
-    private void moveBlockToBackground(){
+    private boolean checkRight(){
+       
+        if(block.getRightEdge()== gridColumns){
+           return false;
+        }
+        
+       int[][] shape = block.getShape();
+        int w = block.getWidth();
+        int h = block.getHeight();
+        
+        for(int row = 0; row < h; row++){
+            for(int col =w - 1; col >=0 ; col--){
+                if(shape[row][col]!=0){
+                    int x = col+block.getX()+1;
+                    int y = row + block.getY();
+                    if(y<0) break;
+                    if(background[y][x]!=null) return false;
+                    break;
+                }
+            }
+        }
+        return true;
+    }
+
+
+   private boolean checkLeft(){
+        
+        if(block.getLeftEdge() == 0)return false;
+       int[][] shape = block.getShape();
+        int w = block.getWidth();
+        int h = block.getHeight();
+        
+        for(int row = 0; row < h; row++){
+            for(int col =0; col < w; col++){
+                if(shape[row][col]!=0){
+                    int x = col+block.getX()-1;
+                    int y = row + block.getY();
+                    if(y<0) break;
+                    if(background[y][x]!=null) return false;
+                    break;
+                }
+            }
+        }
+        
+        
+        return true;
+    }
+   
+   public int clearLines(){
+       
+       boolean lineFilled;
+       int linesCleared = 0;
+       for(int r = gridRows -1; r>=0; r--){
+           lineFilled = true;
+           for(int c = 0; c < gridColumns; c++){
+               if(background[r][c] == null){
+                   lineFilled = false;
+                   break;
+               }
+           }
+           
+           if(lineFilled){
+               
+               linesCleared++;
+               clearLine(r);
+               shiftDown(r);
+               clearLine(0);
+               r++;
+               repaint();
+           }
+       }
+       return linesCleared;
+   }
+   
+   private void clearLine(int r){
+       for(int i = 0; i < gridColumns; i++){
+                   background[r][i] = null;
+               }
+   }
+   
+   private void shiftDown(int r){
+       
+       for(int row = r; row > 0; row--){
+           for(int col = 0; col < gridColumns; col++){
+               background[row][col] = background[row-1][col];
+           }
+       }
+   }
+           
+    
+    public void moveBlockToBackground(){
        
         int h = block.getHeight();
         int w = block.getWidth();
@@ -66,7 +239,7 @@ public class GameArea extends JPanel{
                   
                   if(shape[r][c]==1){
 // Si el elemento del bloque es igual a 1 significa que está coloreado, es decir que es parte del bloque.
-//En las coordenadas que corresponden a r + yPos,
+//En las coordenadas que corresponden a r + yPos, Por ahora mueve todo el bloque por lo que puede superponerse.
                       background[r+ yPos][c+ xPos]=color;
                   }
               }
